@@ -227,7 +227,7 @@ class LogClient(object):
         headers = {
             'Host': self._logHost,
             'Content-Type': 'application/x-protobuf',
-            'x-cls-compress-type': 'lz4',
+            # 'x-cls-compress-type': 'lz4',
             'Content-Length': str(len(body))
         }
         params = {"topic_id": topic_id}
