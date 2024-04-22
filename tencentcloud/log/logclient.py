@@ -25,17 +25,14 @@ if six.PY3:
     xrange = range
 
 try:
-    import lz4
+    import lz4.frame
 
-    if not hasattr(lz4, 'loads') or not hasattr(lz4, 'dumps'):
-        lz4 = None
-    else:
-        def lz_decompress(raw_size, data):
-            return lz4.loads(struct.pack('<I', raw_size) + data)
+    def lz_decompress(data):
+        return lz4.frame.decompress(data)
 
+    def lz_compress(data):
+        return lz4.frame.compress(data)
 
-        def lz_compresss(data):
-            return lz4.dumps(data)[4:]
 
 except ImportError:
     lz4 = None
@@ -146,14 +143,16 @@ class LogClient(object):
         else:
             exJson = '. Return json is ' + str(json_body) if json_body else '.'
             raise LogException('LogRequestError',
-                               'Request is failed. Http code is ' + str(resp_status) + exJson, requestId,
+                               'Request is failed. Http code is ' +
+                               str(resp_status) + exJson, requestId,
                                resp_status, resp_header, resp_body)
 
     def _getHttpResponse(self, method, url, params, body, headers,
                          timeout=CONNECTION_TIME_OUT):  # ensure method, url, body is str
         try:
             headers['User-Agent'] = self._user_agent
-            r = getattr(requests, method.lower())(url, params=params, data=body, headers=headers, timeout=timeout)
+            r = getattr(requests, method.lower())(url, params=params,
+                                                  data=body, headers=headers, timeout=timeout)
             return r.status_code, r.content, r.headers
         except Exception as ex:
             raise LogException('LogRequestError', str(ex))
@@ -168,10 +167,12 @@ class LogClient(object):
         requestId = Util.h_v_td(header, 'X-Cls-Requestid', '')
         if resp_status == 200:
             if response_body_type == RESPONSE_BODY_TYPE_JSON:
-                exJson = self._loadJson(resp_status, resp_header, resp_body, requestId)
+                exJson = self._loadJson(
+                    resp_status, resp_header, resp_body, requestId)
                 exJson = Util.convert_unicode_to_str(exJson)
                 if 'Error' in exJson['Response']:
-                    LogClient._error(exJson, resp_status, resp_header, resp_body, requestId)
+                    LogClient._error(exJson, resp_status,
+                                     resp_header, resp_body, requestId)
                 return exJson, header
             else:
                 return resp_body, header
@@ -179,11 +180,13 @@ class LogClient(object):
         exJson = self._loadJson(resp_status, resp_header, resp_body, requestId)
         exJson = Util.convert_unicode_to_str(exJson)
 
-        LogClient._error(exJson, resp_status, resp_header, resp_body, requestId)
+        LogClient._error(exJson, resp_status, resp_header,
+                         resp_body, requestId)
 
     def _send(self, method, body, resource, params, headers, response_body_type='json'):
         url = self.http_type + self._endpoint + resource
-        retry_times = range(10) if 'log-cli-v-' not in self._user_agent else cycle(range(10))
+        retry_times = range(
+            10) if 'log-cli-v-' not in self._user_agent else cycle(range(10))
         last_err = None
         for _ in retry_times:
             try:
@@ -230,7 +233,8 @@ class LogClient(object):
         params = {"topic_id": topic_id}
         resource = '/structuredlog'
 
-        (resp, header) = self._send('POST', body, resource, params, headers, RESPONSE_BODY_TYPE_BINARY)
+        (resp, header) = self._send('POST', body, resource,
+                                    params, headers, RESPONSE_BODY_TYPE_BINARY)
         return PutLogsResponse(header, resp)
 
     def pull_logs(self, topic_id, partition_id, size, start_time=0, offset=0, end_time=None):
@@ -279,7 +283,8 @@ class LogClient(object):
         }
 
         resource = '/pull_log'
-        (resp, header) = self._send("POST", body_str, resource, params, headers, RESPONSE_BODY_TYPE_BINARY)
+        (resp, header) = self._send("POST", body_str,
+                                    resource, params, headers, RESPONSE_BODY_TYPE_BINARY)
 
         return PullLogResponse(resp, header)
 
@@ -298,7 +303,8 @@ class YunApiLogClient(LogClient):
     def _send(self, method, resource, params, headers, body='', region='', action='',
               response_body_type='json', service='cls'):
         url = self.http_type + self._endpoint + resource
-        retry_times = range(10) if 'log-cli-v-' not in self._user_agent else cycle(range(10))
+        retry_times = range(
+            10) if 'log-cli-v-' not in self._user_agent else cycle(range(10))
         last_err = None
         timestamp = int(time.time())
         for _ in retry_times:
@@ -344,7 +350,8 @@ class YunApiLogClient(LogClient):
 
         :return: CreateConsumerGroupResponse
         """
-        request = CreateConsumerGroupRequest(logset_id, consumer_group, timeout, topics)
+        request = CreateConsumerGroupRequest(
+            logset_id, consumer_group, timeout, topics)
         body_str = request.get_request_body()
 
         headers = {
@@ -355,7 +362,8 @@ class YunApiLogClient(LogClient):
         params = {}
 
         resource = '/'
-        (resp, header) = self._send('POST', resource, params, headers, body_str, self._region, 'CreateConsumerGroup')
+        (resp, header) = self._send('POST', resource, params,
+                                    headers, body_str, self._region, 'CreateConsumerGroup')
         return CreateConsumerGroupResponse(header, resp)
 
     def update_consumer_group(self, logset_id, consumer_group, topics, timeout=None):
@@ -401,7 +409,8 @@ class YunApiLogClient(LogClient):
         }
         params = {}
         resource = '/'
-        (resp, header) = self._send('POST', resource, params, headers, body_str, self._region, 'ModifyConsumerGroup')
+        (resp, header) = self._send('POST', resource, params,
+                                    headers, body_str, self._region, 'ModifyConsumerGroup')
         return UpdateConsumerGroupResponse(header, resp)
 
     def delete_consumer_group(self, logset_id, consumer_group):
@@ -431,7 +440,8 @@ class YunApiLogClient(LogClient):
         params = {}
 
         resource = '/'
-        (resp, header) = self._send('POST', resource, params, headers, body_str, self._region, 'DeleteConsumerGroup')
+        (resp, header) = self._send('POST', resource, params,
+                                    headers, body_str, self._region, 'DeleteConsumerGroup')
         return DeleteConsumerGroupResponse(header, resp)
 
     def list_consumer_group(self, logset_id, topics):
@@ -460,7 +470,8 @@ class YunApiLogClient(LogClient):
             'X-TC-Version': API_VERSION
         }
 
-        (resp, header) = self._send('POST', resource, params, headers, body_str, self._region, 'DescribeConsumerGroups')
+        (resp, header) = self._send('POST', resource, params,
+                                    headers, body_str, self._region, 'DescribeConsumerGroups')
         return ListConsumerGroupResponse(resp, header)
 
     def update_offsets(self, logset_id, consumer_group, consumer='', offsets=None):
@@ -480,7 +491,8 @@ class YunApiLogClient(LogClient):
 
         :return: ConsumerGroupUpdateOffsetsResponse
         """
-        request = ConsumerGroupUpdateOffsetsRequest(logset_id, consumer_group, consumer, offsets)
+        request = ConsumerGroupUpdateOffsetsRequest(
+            logset_id, consumer_group, consumer, offsets)
         body_str = request.get_request_body()
         params = {}
         headers = {
@@ -490,7 +502,8 @@ class YunApiLogClient(LogClient):
         }
 
         resource = '/'
-        (resp, header) = self._send("POST", resource, params, headers, body_str, self._region, 'CommitConsumerOffsets')
+        (resp, header) = self._send("POST", resource, params,
+                                    headers, body_str, self._region, 'CommitConsumerOffsets')
         return ConsumerGroupUpdateOffsetsResponse(header, resp)
 
     def get_offsets(self, logset_id, consumer_group, topic_id, partition_id=-1, position="end"):
@@ -513,7 +526,8 @@ class YunApiLogClient(LogClient):
 
         :return: ConsumerGroupGetOffsetsResponse
         """
-        request = ConsumerGroupGetOffsetsRequest(logset_id, consumer_group, topic_id, partition_id, position)
+        request = ConsumerGroupGetOffsetsRequest(
+            logset_id, consumer_group, topic_id, partition_id, position)
         body_str = request.get_request_body()
         params = {}
         headers = {
@@ -546,7 +560,8 @@ class YunApiLogClient(LogClient):
         """
         if partitions is None:
             partitions = []
-        request = ConsumerGroupHeartBeatRequest(logset_id, consumer_group, consumer, partitions)
+        request = ConsumerGroupHeartBeatRequest(
+            logset_id, consumer_group, consumer, partitions)
         body_str = request.get_request_body()
         params = {}
         headers = {
@@ -556,5 +571,6 @@ class YunApiLogClient(LogClient):
         }
 
         resource = '/'
-        (resp, header) = self._send("POST", resource, params, headers, body_str, self._region, 'SendConsumerHeartbeat')
+        (resp, header) = self._send("POST", resource, params,
+                                    headers, body_str, self._region, 'SendConsumerHeartbeat')
         return ConsumerGroupHeartBeatResponse(resp, header)
