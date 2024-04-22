@@ -223,7 +223,7 @@ class LogClient(object):
         """
 
         body = log_group.SerializeToString()
-        body = lz_compresss(body)
+        body = lz_compress(body)
         headers = {
             'Host': self._logHost,
             'Content-Type': 'application/x-protobuf',
